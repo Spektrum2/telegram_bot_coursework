@@ -6,7 +6,6 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import pro.sky.telegrambot.model.NotificationTask;
@@ -17,18 +16,19 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class TelegramBotUpdatesListener implements UpdatesListener {
 
-    private Logger logger = LoggerFactory.getLogger(TelegramBotUpdatesListener.class);
+    private final Logger logger = LoggerFactory.getLogger(TelegramBotUpdatesListener.class);
     private final NotificationTaskRepository notificationTaskRepository;
+    private final TelegramBot telegramBot;
 
-    @Autowired
-    private TelegramBot telegramBot;
-
-    public TelegramBotUpdatesListener(NotificationTaskRepository notificationTaskRepository) {
+    public TelegramBotUpdatesListener(NotificationTaskRepository notificationTaskRepository, TelegramBot telegramBot) {
         this.notificationTaskRepository = notificationTaskRepository;
+        this.telegramBot = telegramBot;
     }
 
     @PostConstruct
@@ -38,12 +38,14 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
 
     @Override
     public int process(List<Update> updates) {
+        Pattern pattern = Pattern.compile("([0-9.:\\s]{16})(\\s)([\\W+]+)");
         updates.forEach(update -> {
             logger.info("Processing update: {}", update);
-            if (update.message() != null && update.message().text().equals("/start")) {
+            Matcher matcher = pattern.matcher(update.message().text());
+            if (update.message() != null && "/start".equals(update.message().text())) {
                 telegramBot.execute(new SendMessage(update.message().chat().id(), "Hello"));
-            } else if (update.message() != null && update.message().text().matches("([0-9.:\\s]{16})(\\s)([\\W+]+)")) {
-                processing(update.message().text(), update.message().chat().id());
+            } else if (update.message() != null && matcher.matches()) {
+                save(create(update.message().chat().id(), matcher.group(3), matcher.group(1)));
             } else {
                 telegramBot.execute(new SendMessage(update.message().chat().id(), "Неправильно введено сообщение! Шаблон сообщения: 01.01.2022 20:00 Сделать домашнюю работу"));
             }
@@ -63,13 +65,6 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
         notificationTask.setMessage(message);
         notificationTask.setDate(LocalDateTime.parse(date, DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")));
         return notificationTask;
-    }
-
-    public void processing(String message, long chatId) {
-        logger.info("Splitting a notification into a date and a message");
-        String date = message.substring(0, 16);
-        String item = message.substring(17);
-        save(create(chatId, item, date));
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
