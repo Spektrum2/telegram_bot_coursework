@@ -10,17 +10,17 @@ import java.time.LocalDateTime;
 public class NotificationTask {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long Id;
+    private long id;
     private long chatId;
     private String message;
     private LocalDateTime date;
 
     public long getId() {
-        return Id;
+        return id;
     }
 
     public void setId(long id) {
-        Id = id;
+        id = id;
     }
 
     public long getChatId() {
