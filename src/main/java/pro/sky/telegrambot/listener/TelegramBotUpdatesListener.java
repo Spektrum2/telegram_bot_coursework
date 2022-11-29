@@ -41,13 +41,17 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
         Pattern pattern = Pattern.compile("([0-9.:\\s]{16})(\\s)([\\W+]+)");
         updates.forEach(update -> {
             logger.info("Processing update: {}", update);
-            Matcher matcher = pattern.matcher(update.message().text());
+            try{
+                Matcher matcher = pattern.matcher(update.message().text());
             if (update.message() != null && "/start".equals(update.message().text())) {
                 telegramBot.execute(new SendMessage(update.message().chat().id(), "Hello"));
             } else if (update.message() != null && matcher.matches()) {
                 save(create(update.message().chat().id(), matcher.group(3), matcher.group(1)));
             } else {
                 telegramBot.execute(new SendMessage(update.message().chat().id(), "Неправильно введено сообщение! Шаблон сообщения: 01.01.2022 20:00 Сделать домашнюю работу"));
+            }
+            }catch (NullPointerException e){
+                telegramBot.execute(new SendMessage(update.message().chat().id(), "Бот работает только с текстовыми сообщениями"));
             }
         });
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
